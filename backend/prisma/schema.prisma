@@ -1,12 +1,80 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
 generator client {
-  provider = "prisma-client-js"
-  output   = "../generated/prisma"
+    provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+// --- Enum ---
+
+enum UserRole {
+    ADMIN
+    READER
+}
+
+enum PostStatus {
+    DRAFT
+    PUBLISHED
+    PRIVATE
+    ARCHIVED
+}
+
+// --- Models ---
+
+model User {
+    id        Int      @id @default(autoincrement())
+    email     String   @unique
+    password  String
+    name      String?
+    role      UserRole @default(READER)
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    posts    Post[]
+    comments Comment[]
+}
+
+model Post {
+    id        Int        @id @default(autoincrement())
+    title     String
+    slug      String     @unique
+    content   String
+    status    PostStatus @default(DRAFT)
+    createdAt DateTime   @default(now())
+    updatedAt DateTime   @updatedAt
+
+    author   User? @relation(fields: [authorId ], references: [id])
+    authorId Int?
+
+    comments   Comment[]
+    categories Category[]
+}
+
+model Comment {
+    id        Int      @id @default(autoincrement())
+    content   String
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    author    User?    @relation(fields: [authorId], references: [id])
+    authorId  Int?
+    post      Post?    @relation(fields: [postId], references: [id])
+    postId    Int?
+
+    parentId Int?
+    parent   Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    replies  Comment[] @relation("CommentReplies")
+}
+
+model Category {
+    id    Int    @id @default(autoincrement())
+    name  String @unique
+    posts Post[]
 }
