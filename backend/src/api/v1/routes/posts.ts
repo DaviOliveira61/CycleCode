@@ -8,6 +8,8 @@ router.get('/', postController.getPosts);
 router.get('/:slug', postController.getPost);
 
 router.post('/', authMiddleware, adminOnly, postController.createPost);
+router.post('/:id/translations', authMiddleware, adminOnly, postController.addTranslation);
+
 router.patch('/:id', authMiddleware, adminOnly, postController.updatePost);
 router.delete('/:id', authMiddleware, adminOnly, postController.deletePost);
 
