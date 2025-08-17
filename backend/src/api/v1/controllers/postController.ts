@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import * as postService from '../services/postService.js';
-import { prisma } from '../lib/prisma.ts'; 
+import * as postService from '../../../services/postService.js';
+import { prisma } from '../../../lib/prisma.ts'; 
 
 interface AuthRequest extends Request {
     user?: { userId: number; role: string };

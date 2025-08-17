@@ -44,18 +44,37 @@ model User {
 
 model Post {
     id        Int        @id @default(autoincrement())
-    title     String
     slug      String     @unique
-    content   String
     status    PostStatus @default(DRAFT)
     createdAt DateTime   @default(now())
     updatedAt DateTime   @updatedAt
 
-    author   User? @relation(fields: [authorId ], references: [id])
+    author   User? @relation(fields: [authorId], references: [id])
     authorId Int?
 
     comments   Comment[]
     categories Category[]
+
+    translations PostTranslation[]
+
+    defaultLanguage Language @default(EN_US)
+}
+
+model PostTranslation {
+    id       Int      @id @default(autoincrement())
+    language Language
+    title    String
+    content  String
+
+    post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+    postId Int
+
+    @@unique([postId, language])
+}
+
+enum Language {
+    PT_BR
+    EN_US
 }
 
 model Comment {

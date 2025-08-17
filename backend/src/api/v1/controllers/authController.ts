@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
-import * as userService from '../services/userService.js';
-import { comparePassword } from '../utils/password.js';
+import * as userService from '../../../services/userService.js';
+import { comparePassword } from '../../../utils/password.js';
 
 export const register = async (req: Request, res: Response) => {
     try {
