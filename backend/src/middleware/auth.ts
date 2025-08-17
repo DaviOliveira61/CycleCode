@@ -22,3 +22,10 @@ export const authMiddleware = (req: AuthRequest, res: Response, next: NextFuncti
         res.status(403).json({ error: 'Invalid token.' });
     }
 };
+
+export const adminOnly = (req: AuthRequest, res: Response, next: NextFunction) => {
+    if(req.user?.role !== 'ADMIN'){
+        return res.status(403).json({ error: 'Forbidden. Access is restricted to administrators.' });
+    }
+    next();
+};

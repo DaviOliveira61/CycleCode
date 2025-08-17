@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma.js';
+import { PostStatus } from '@prisma/client';
 import slugifyLibrary from 'slugify';
 
 const slugify = (slugifyLibrary as any).default || slugifyLibrary;
@@ -58,6 +59,30 @@ export const createPost = async (params: PostCreationParams) => {
             content,
             slug,
             authorId,
+        },
+    });
+};
+
+export interface PostUpdateParams {
+    title?: string;
+    content?: string;
+    status?: PostStatus;
+}
+
+export const updatePost = async (postId: number, data: PostUpdateParams) => {
+    return prisma.post.update({
+        where: {
+            id: postId,
+        },
+        data: data,
+    });
+};
+
+export const deletePost = async (postId: number) => {
+
+    return prisma.post.delete({
+        where: {
+            id: postId,
         },
     });
 };
