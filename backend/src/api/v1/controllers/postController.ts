@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import * as postService from '../../../services/postService.js';
 import { AuthRequest } from '../middleware/auth.js';
-import { prisma } from '../../../lib/prisma.js';
+import { prisma } from '../../../lib/prisma.ts';
 import { getLanguage } from '../../../utils/language.js';
 
 export const getPosts = async (req: Request, res: Response) => {
@@ -26,31 +26,25 @@ export const getPost = async (req: Request, res: Response) => {
 
         res.status(200).json(post);
     } catch (error) {
+        console.error(error);
         res.status(500).json({ error: 'Failed to fetch post.' });
     }
 };
 
 export const createPost = async (req: AuthRequest, res: Response) => {
     try {
-        const { slug, categoryIds, defaultLanguage } = req.body;
+        const { categoryIds, defaultLanguage } = req.body;
         const authorId = req.user?.userId;
 
         if (!authorId) {
             return res.status(403).json({ error: 'User not authenticated.' });
         }
 
-        if (!slug) {
-            return res.status(400).json({ error: 'Slug is required.' });
-        }
-
-        const postData = { authorId, slug, categoryIds, defaultLanguage };
+        const postData = { authorId, categoryIds, defaultLanguage };
         const newPost = await postService.createPost(postData);
 
         res.status(201).json(newPost);
-    } catch (error: any) {
-        if (error.message === 'A post with this slug already exists.') {
-            return res.status(409).json({ error: error.message });
-        }
+    } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Failed to create post.' });
     }
@@ -59,40 +53,28 @@ export const createPost = async (req: AuthRequest, res: Response) => {
 export const addTranslation = async (req: AuthRequest, res: Response) => {
     try {
         const postId = parseInt(req.params.id, 10);
-        const { language, title, content } = req.body;
+        const { language, title, content, slug } = req.body;
+        if (isNaN(postId)) return res.status(400).json({ error: 'Invalid post ID.' });
+        if (!language || !title || !content) return res.status(400).json({ error: 'Language, title, and content are required.' });
 
-        if (isNaN(postId)) {
-            return res.status(400).json({ error: 'Invalid post ID.' });
-        }
-
-        if (!language || !title || !content) {
-            return res.status(400).json({ error: 'Language, title, and content are required.' });
-        }
-
-        const translationData = { language, title, content };
+        const translationData = { language, title, content, slug };
         const newTranslation = await postService.addOrUpdateTranslation(postId, translationData);
-
         res.status(201).json(newTranslation);
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Failed to add translation.' });
     }
 };
-export const updatePost = async (req: AuthRequest, res: Response) => {
 
+export const updatePost = async (req: AuthRequest, res: Response) => {
     try {
         const postId = parseInt(req.params.id, 10);
-        const dataToUpdate = req.body;
-        if (isNaN(postId)) {
-            return res.status(400).json({ error: 'Invalid post ID.' });
-        }
+        if (isNaN(postId)) return res.status(400).json({ error: 'Invalid post ID.' });
 
         const post = await prisma.post.findUnique({ where: { id: postId } });
-        if (!post) {
-            return res.status(404).json({ error: 'Post not found.' });
-        }
+        if (!post) return res.status(404).json({ error: 'Post not found.' });
 
-        const updatedPost = await postService.updatePost(postId, dataToUpdate);
+        const updatedPost = await postService.updatePost(postId, req.body);
         res.status(200).json(updatedPost);
     } catch (error) {
         console.error(error);
@@ -103,19 +85,13 @@ export const updatePost = async (req: AuthRequest, res: Response) => {
 export const deletePost = async (req: AuthRequest, res: Response) => {
     try {
         const postId = parseInt(req.params.id, 10);
-
-        if (isNaN(postId)) {
-            return res.status(400).json({ error: 'Invalid post ID.' });
-        }
+        if (isNaN(postId)) return res.status(400).json({ error: 'Invalid post ID.' });
 
         const post = await prisma.post.findUnique({ where: { id: postId } });
-        if (!post) {
-            return res.status(404).json({ error: 'Post not found.' });
-        }
+        if (!post) return res.status(404).json({ error: 'Post not found.' });
 
-        const deletePost = await postService.deletePost(postId);
+        await postService.deletePost(postId);
         res.status(204).send();
-
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Failed to delete post.' });

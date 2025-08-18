@@ -1,12 +1,12 @@
-import { prisma } from '../lib/prisma.js';
-import { PostStatus, Language } from '@prisma/client';
+import { prisma } from '../lib/prisma.ts';
+import { Language, PostStatus } from '@prisma/client';
 import slugifyLibrary from 'slugify';
-
 const slugify = (slugifyLibrary as any).default || slugifyLibrary;
 
+// Interfaces
 export interface PostCreationParams {
     authorId: number;
-    slug: string;
+    // slug: string;
     defaultLanguage?: Language;
     categoryIds?: number[];
 }
@@ -15,6 +15,7 @@ export interface PostTranslationParams {
     language: Language;
     title: string;
     content: string;
+    slug: string;
 }
 
 export interface PostUpdateParams {
@@ -23,18 +24,12 @@ export interface PostUpdateParams {
     defaultLanguage?: Language;
     categoryIds?: number[];
 }
+
 export const createPost = async (params: PostCreationParams) => {
-
-    const { authorId, slug, defaultLanguage, categoryIds } = params;
-
-    const existingPost = await prisma.post.findFirst({ where: { slug } });
-    if (existingPost) {
-        throw new Error('A post with this slug already exists.');
-    }
-
+    const { authorId, defaultLanguage, categoryIds } = params;
+    
     return prisma.post.create({
         data: {
-            slug,
             authorId,
             defaultLanguage,
             categories: {
@@ -44,20 +39,15 @@ export const createPost = async (params: PostCreationParams) => {
     });
 };
 
-
 export const addOrUpdateTranslation = async (postId: number, params: PostTranslationParams) => {
-    const { language, title, content } = params;
+    const { language, title, content, slug } = params;
     return prisma.postTranslation.upsert({
-        where: {
-            postId_language: {
-                postId: postId,
-                language: language,
-            }
-        },
-        update: { title, content },
-        create: { postId, language, title, content }
+        where: { postId_language: { postId, language } },
+        update: { title, content, slug },
+        create: { postId, language, title, content, slug }
     });
 };
+
 export const updatePost = async (postId: number, data: PostUpdateParams) => {
     const { categoryIds, ...restOfData } = data;
     return prisma.post.update({
@@ -74,33 +64,37 @@ export const deletePost = async (postId: number) => {
 };
 
 export const getPostBySlug = async (slug: string, lang: Language) => {
-    const post = await prisma.post.findUnique({
-        where: { slug, status: 'PUBLISHED' },
+    const translation = await prisma.postTranslation.findUnique({
+        where: { slug },
         include: {
-            author: { select: { name: true } },
-            categories: true,
-            translations: true,
+            post: {
+                include: {
+                    author: { select: { name: true } },
+                    categories: true,
+                    translations: true,
+                },
+            },
         },
     });
 
-    if (!post) return null;
+    if (!translation || translation.post.status !== 'PUBLISHED') return null;
 
-    let translation = post.translations.find(t => t.language === lang);
-    if (!translation) {
-        translation = post.translations.find(t => t.language === post.defaultLanguage);
+    const postContainer = translation.post;
+    let finalTranslation = postContainer.translations.find(t => t.language === lang)
+        || postContainer.translations.find(t => t.language === postContainer.defaultLanguage)
+        || postContainer.translations[0];
+
+    if (!finalTranslation) {
+        return { ...postContainer, title: 'No Content Available', content: '', language: lang };
     }
-    if (!translation) {
-        translation = post.translations[0];
-    }
 
-    if (!translation) return { ...post, title: 'No Content', content: '' };
-
-    const { translations, ...restOfPost } = post;
+    const { translations, ...restOfPost } = postContainer;
     return {
         ...restOfPost,
-        title: translation.title,
-        content: translation.content,
-        language: translation.language,
+        title: finalTranslation.title,
+        content: finalTranslation.content,
+        slug: finalTranslation.slug,
+        language: finalTranslation.language,
     };
 };
 
@@ -116,14 +110,19 @@ export const getAllPublishedPosts = async (lang: Language) => {
     });
 
     return posts.map(post => {
-        let translation = post.translations.find(t => t.language === lang) || post.translations.find(t => t.language === post.defaultLanguage) || post.translations[0];
+        let translation = post.translations.find(t => t.language === lang)
+            || post.translations.find(t => t.language === post.defaultLanguage)
+            || post.translations[0];
 
         const { translations, ...restOfPost } = post;
+        const excerpt = translation ? translation.content.substring(0, 200) + '...' : '';
+
         return {
             ...restOfPost,
             title: translation?.title || 'No Title',
-            content: translation?.content || '',
-            language: translation?.language || post.defaultLanguage
+            content: excerpt,
+            slug: translation?.slug || '',
+            language: translation?.language || post.defaultLanguage,
         };
-    }).filter(p => p.content);
+    }).filter(p => p.slug);
 };
